@@ -1,0 +1,7 @@
+Debug/
+RayTracing/Debug/
+.vs/
+*.sln
+*.vcxproj
+*.filters
+*.user
