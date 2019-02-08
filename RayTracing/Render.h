@@ -30,6 +30,21 @@ bool Intersection(Vec3f pos, Vec3f dir, Sphere sph, float& t) {
 	return t;
 }
 
+Sphere* ClosestIntersection(Vec3f pos, Vec3f dir, std::vector<Sphere>& sph_vec, float t_min, float t_max, float& t) {
+	float parametr_t;
+	Sphere* IntersectSphere = NULL;
+	for (auto& sph : sph_vec) {		
+		if (Intersection(pos, dir, sph, parametr_t)) {
+			if (parametr_t < t_max && parametr_t > t_min) {
+				t_max = parametr_t;
+				IntersectSphere = &sph;
+			}
+		}
+	}
+	t = t_max;
+	return IntersectSphere;
+}
+
 Vec3f screen_to_plan(int i, int j) {
 	float dist_to_plan = 100;
 
@@ -42,48 +57,51 @@ Vec3f screen_to_plan(int i, int j) {
 	return Vec3f(plan_width * (cx - 0.5), plan_height * (cy - 0.5), 0);
 }
 
-sf::Color TraceRay(Vec3f pos, Vec3f dir, std::vector<Sphere>& sph_vec, std::vector<Light_point>& light_vec, int level) {
-	float z_buff = 1000;
-	Vec3f point_buff;
-	Sphere* sp = NULL;
-	Vec3f p;
-	for (auto& sph : sph_vec) {
-		float parametr_t = 0;
-		if (Intersection(pos, dir, sph, parametr_t)) {
-			p = pos + parametr_t * dir;
-			if (p.z < z_buff) {
-				z_buff = p.z;
-				point_buff = p;
-				sp = &sph;
-			}
-		}
-	}
-	if (sp != NULL) {
-		float bright = 0;
-		Vec3f color(sp->color);
-		Vec3f reflected_row;
-		for (const auto& l : light_vec) {
-			Vec3f fallen_row = l.pos - point_buff;
-			Vec3f normal = point_buff - sp->center;
-			reflected_row = fallen_row - 2 * (fallen_row % normal) / (normal % normal) * normal;
+Vec3f Reflect_ray(Vec3f fallen_ray, Vec3f normal) {
+	return fallen_ray - 2 * (fallen_ray % normal) / (normal % normal) * normal;
+}
 
-			float t;
-			//bool shadow = Intersection(p, (-1) * fallen_row, sph_vec, t);
-			//Diffuse light
-			float k1 = cos(fallen_row, normal);
-			if (k1 > 0) {
-				bright += l.brightness * k1;
-			}
-			//Specular light
-			float k2 = cos(reflected_row, dir);
-			if (k2 > 0) {
-				bright += sp->specular * pow(k2, 8);
-			}
-		}
+float Calculate_bright(Sphere* sp, 
+						std::vector<Light_point>& light_vec, 
+						std::vector<Sphere>& sph_vec, 
+						Vec3f intersected_point, 
+						Vec3f dir) {
+	float bright = 0;
+	for (const auto& l : light_vec) {
+		Vec3f fallen_ray = l.pos - intersected_point;
+		Vec3f normal = intersected_point - sp->center;
+		Vec3f reflected_ray = Reflect_ray(fallen_ray, normal);
 		
+		float parametr_t;
+		if (ClosestIntersection(intersected_point, fallen_ray, sph_vec, 0.00001, 1, parametr_t)) {
+			continue;
+		}
+
+		//Diffuse light
+		float k1 = cos(fallen_ray, normal);
+		if (k1 > 0) {
+			bright += l.brightness * k1;
+		}
+		//Specular light
+		float k2 = cos(reflected_ray, dir);
+		if (k2 > 0) {
+			bright += l.brightness * pow(k2, sp->specular.val);
+		}		
+	}
+	return bright;
+}
+
+sf::Color TraceRay(Vec3f pos, Vec3f dir, std::vector<Sphere>& sph_vec, std::vector<Light_point>& light_vec, int level) {
+	float parametr_t = 0;
+	Sphere* closest_obj = ClosestIntersection(pos, dir, sph_vec, 0, 1000, parametr_t);
+
+	if (closest_obj != NULL) {
+		Vec3f intersected_point = pos + parametr_t * dir;
+		float bright = Calculate_bright(closest_obj, light_vec, sph_vec, intersected_point, dir);
+		Vec3f color(closest_obj->color);		
 		if (level > 0) {
-			//color = bright * color;
-			color = (1 - sp->reflection) * bright * color + sp->reflection * TraceRay(point_buff, (1) * reflected_row, sph_vec, light_vec, --level);
+			color = bright * color;
+			//color = (1 - sp->reflection) * bright * color + sp->reflection * TraceRay(intersected_point, (1) * reflected_row, sph_vec, light_vec, --level);
 		}
 		return sfColorFromVec(color);
 	}
@@ -117,4 +135,4 @@ sf::Image GetRenderImage() {
 
 	return img;
 }
-#pragma once
+
