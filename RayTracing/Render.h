@@ -42,15 +42,15 @@ Vec3f screen_to_plan(int i, int j) {
 	return Vec3f(plan_width * (cx - 0.5), plan_height * (cy - 0.5), 0);
 }
 
-sf::Color TraceRay(Vec3f pos, Vec3f dir, std::vector<Sphere>& sph_vec, std::vector<Light_point>& light_vec) {
+sf::Color TraceRay(Vec3f pos, Vec3f dir, std::vector<Sphere>& sph_vec, std::vector<Light_point>& light_vec, int level) {
 	float z_buff = 1000;
 	Vec3f point_buff;
 	Sphere* sp = NULL;
-
+	Vec3f p;
 	for (auto& sph : sph_vec) {
 		float parametr_t = 0;
 		if (Intersection(pos, dir, sph, parametr_t)) {
-			Vec3f p = pos + parametr_t * dir;
+			p = pos + parametr_t * dir;
 			if (p.z < z_buff) {
 				z_buff = p.z;
 				point_buff = p;
@@ -61,23 +61,30 @@ sf::Color TraceRay(Vec3f pos, Vec3f dir, std::vector<Sphere>& sph_vec, std::vect
 	if (sp != NULL) {
 		float bright = 0;
 		Vec3f color(sp->color);
+		Vec3f reflected_row;
 		for (const auto& l : light_vec) {
 			Vec3f fallen_row = l.pos - point_buff;
 			Vec3f normal = point_buff - sp->center;
-			Vec3f reflected_row = fallen_row - 2 * (fallen_row % normal) / (normal % normal) * normal;
+			reflected_row = fallen_row - 2 * (fallen_row % normal) / (normal % normal) * normal;
 
+			float t;
+			//bool shadow = Intersection(p, (-1) * fallen_row, sph_vec, t);
 			//Diffuse light
 			float k1 = cos(fallen_row, normal);
 			if (k1 > 0) {
 				bright += l.brightness * k1;
 			}
-			//Reflect light
+			//Specular light
 			float k2 = cos(reflected_row, dir);
 			if (k2 > 0) {
 				bright += sp->specular * pow(k2, 8);
 			}
 		}
-		color = bright * color;
+		
+		if (level > 0) {
+			//color = bright * color;
+			color = (1 - sp->reflection) * bright * color + sp->reflection * TraceRay(point_buff, (1) * reflected_row, sph_vec, light_vec, --level);
+		}
 		return sfColorFromVec(color);
 	}
 	else {
@@ -103,7 +110,7 @@ sf::Image GetRenderImage() {
 			Vec3f pos_on_plan = screen_to_plan(i, j);
 			Vec3f dir = pos_on_plan - camera_pos;
 
-			sf::Color received_color = TraceRay(pos_on_plan, dir, sph_vec, light_vec);
+			sf::Color received_color = TraceRay(pos_on_plan, dir, sph_vec, light_vec, 1);
 			img.setPixel(i, j, received_color);
 		}
 	}
