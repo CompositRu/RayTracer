@@ -5,3 +5,5 @@ RayTracing/Debug/
 *.vcxproj
 *.filters
 *.user
+*.db
+*.opendb
