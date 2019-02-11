@@ -14,7 +14,7 @@ sf::Color sfColorFromVec(Vec3f v) {
 	return sf::Color((int)v.x, (int)v.y, (int)v.z);
 }
 
-bool Intersection(Vec3f pos, Vec3f dir, Sphere sph, float& t) {
+bool Intersection(Vec3f pos, Vec3f dir, Sphere_struct sph, float& t) {
 	float a = (dir % dir);
 	float half_b = (dir % (pos - sph.center));
 	float c = (pos - sph.center) % (pos - sph.center) - sph.radius * sph.radius;
@@ -30,9 +30,15 @@ bool Intersection(Vec3f pos, Vec3f dir, Sphere sph, float& t) {
 	return t;
 }
 
-Sphere* ClosestIntersection(Vec3f pos, Vec3f dir, std::vector<Sphere>& sph_vec, float t_min, float t_max, float& t) {
-	float parametr_t;
-	Sphere* IntersectSphere = NULL;
+std::unique_ptr<Rended_object>& ClosestIntersection(Vec3f pos,
+									Vec3f dir, 
+									std::vector<std::unique_ptr<Rended_object>>& sph_vec,
+									float t_min, 
+									float t_max, 
+									float& t,
+									Vec3f& normal) {
+	/*float parametr_t;
+	Sphere_struct* IntersectSphere = NULL;
 	for (auto& sph : sph_vec) {		
 		if (Intersection(pos, dir, sph, parametr_t)) {
 			if (parametr_t < t_max && parametr_t > t_min) {
@@ -42,7 +48,26 @@ Sphere* ClosestIntersection(Vec3f pos, Vec3f dir, std::vector<Sphere>& sph_vec, 
 		}
 	}
 	t = t_max;
-	return IntersectSphere;
+	return IntersectSphere;*/
+	float parametr_t;
+	//std::unique_ptr<Rended_object> IntersectSphere = NULL;
+	int i = 0;
+	int returned_i = -1;
+	for (auto& sph : sph_vec) {
+		if (sph->Intersection(pos, dir, parametr_t, normal)) {
+			if (parametr_t < t_max && parametr_t > t_min) {
+				t_max = parametr_t;
+				returned_i = i;
+				//IntersectSphere = std::move(sph);
+			}
+		}
+		i++;
+	}
+	t = t_max;
+	//return IntersectSphere;
+	//if (returned_i == -1) return std::make_unique<Sphere>(nullptr);
+	if (returned_i == -1) return nullptr;
+	return sph_vec[returned_i];
 }
 
 Vec3f screen_to_plan(int i, int j) {
@@ -58,54 +83,69 @@ Vec3f screen_to_plan(int i, int j) {
 }
 
 Vec3f Reflect_ray(Vec3f fallen_ray, Vec3f normal) {
-	return fallen_ray - 2 * (fallen_ray % normal) / (normal % normal) * normal;
+	return (-1) * (fallen_ray - 2 * (fallen_ray % normal) / (normal % normal) * normal);
 }
 
-float Calculate_bright(Sphere* sp, 
+float Calculate_bright(const std::unique_ptr<Rended_object>& sp,
+						Vec3f normal,
 						std::vector<Light_point>& light_vec, 
-						std::vector<Sphere>& sph_vec, 
+						std::vector<std::unique_ptr<Rended_object>>& sph_vec,
 						Vec3f intersected_point, 
 						Vec3f dir) {
 	float bright = 0;
-	for (const auto& l : light_vec) {
-		Vec3f fallen_ray = l.pos - intersected_point;
-		Vec3f normal = intersected_point - sp->center;
+	//Vec3f normal = intersected_point - sp->center;
+	for (const auto& light : light_vec) {
+		Vec3f fallen_ray = light.pos - intersected_point;
 		Vec3f reflected_ray = Reflect_ray(fallen_ray, normal);
 		
 		float parametr_t;
-		if (ClosestIntersection(intersected_point, fallen_ray, sph_vec, 0.00001, 1, parametr_t)) {
+		Vec3f normal1;
+		//тут можно делать проверку до первого попавшегося объекта
+		if (ClosestIntersection(intersected_point, fallen_ray, sph_vec, 0.00001, 1, parametr_t, normal1)) {
 			continue;
 		}
 
 		//Diffuse light
 		float k1 = cos(fallen_ray, normal);
 		if (k1 > 0) {
-			bright += l.brightness * k1;
+			bright += light.intensity * k1;
 		}
 		//Specular light
-		float k2 = cos(reflected_ray, dir);
+		float k2 = cos((-1) * reflected_ray, dir);
 		if (k2 > 0) {
-			bright += l.brightness * pow(k2, sp->specular.val);
+			bright += light.intensity * pow(k2, sp->specular.val);
 		}		
 	}
 	return bright;
 }
 
-sf::Color TraceRay(Vec3f pos, Vec3f dir, std::vector<Sphere>& sph_vec, std::vector<Light_point>& light_vec, int level) {
+sf::Color TraceRay(Vec3f pos, Vec3f dir, std::vector<std::unique_ptr<Rended_object>>& sph_vec,
+					std::vector<Light_point>& light_vec, int level, bool debug) {
 	float parametr_t = 0;
-	Sphere* closest_obj = ClosestIntersection(pos, dir, sph_vec, 0, 1000, parametr_t);
+	Vec3f normal;
+	std::unique_ptr<Rended_object> closest_obj = std::move(ClosestIntersection(pos, dir, sph_vec, 0, 1000, parametr_t, normal));
 
 	if (closest_obj != NULL) {
 		Vec3f intersected_point = pos + parametr_t * dir;
-		float bright = Calculate_bright(closest_obj, light_vec, sph_vec, intersected_point, dir);
+		float bright = Calculate_bright(closest_obj, normal, light_vec, sph_vec, intersected_point, dir);
 		Vec3f color(closest_obj->color);		
 		if (level > 0) {
-			color = bright * color;
-			//color = (1 - sp->reflection) * bright * color + sp->reflection * TraceRay(intersected_point, (1) * reflected_row, sph_vec, light_vec, --level);
+			//color = bright * color;
+			//Vec3f reflected_ray = Reflect_ray((-1) * dir, intersected_point - closest_obj->center);
+			Vec3f reflected_ray = Reflect_ray((-1) * dir, normal);
+			float r = closest_obj->reflection;
+			color = (1 - r) * bright * color + r * TraceRay(intersected_point, reflected_ray, sph_vec, light_vec, --level, debug);
 		}
+		else {
+			color = bright * color;
+			if (debug) std::cout << "--------------------------" << std::endl;
+		}
+		if (debug) std::cout << "color: " << color << std::endl;
 		return sfColorFromVec(color);
 	}
 	else {
+		if (debug) std::cout << "--------------------------" << std::endl;
+		if (debug) std::cout << "back_ground" << std::endl;
 		return back_ground;
 	}
 }
@@ -114,8 +154,9 @@ sf::Image GetRenderImage() {
 	sf::Image img;
 	img.create(screen_width, screen_heigt);
 
-	std::vector<Sphere> sph_vec = GetData();
-	std::vector<Light_point> light_vec = GetDataLight();
+	//std::vector<Sphere_struct> sph_vec = GetData_scene1();
+	std::vector<std::unique_ptr<Rended_object>> sph_vec = Get_data_rended_objects();
+	std::vector<Light_point> light_vec = GetDataLight_scene1();
 
 	float PI = 3.1415926535;
 	float fov = PI / 4;
@@ -128,7 +169,7 @@ sf::Image GetRenderImage() {
 			Vec3f pos_on_plan = screen_to_plan(i, j);
 			Vec3f dir = pos_on_plan - camera_pos;
 
-			sf::Color received_color = TraceRay(pos_on_plan, dir, sph_vec, light_vec, 1);
+			sf::Color received_color = TraceRay(pos_on_plan, dir, sph_vec, light_vec, 3, false);
 			img.setPixel(i, j, received_color);
 		}
 	}
