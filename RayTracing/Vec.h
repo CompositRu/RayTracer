@@ -18,7 +18,9 @@ Vec3f operator+ (Vec3f lhs, Vec3f rhs);
 Vec3f operator- (Vec3f lhs, Vec3f rhs);
 Vec3f operator- (Vec3f v);
 Vec3f operator* (float t, Vec3f v);
+Vec3f operator* (Vec3f lhs, Vec3f rhs);
 Vec3f operator/ (Vec3f v, float t);
 float operator% (Vec3f lhs, Vec3f rhs);
 Vec3f operator! (Vec3f v);
+
 float cos(Vec3f lhs, Vec3f rhs);

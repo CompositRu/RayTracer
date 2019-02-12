@@ -46,7 +46,7 @@ int main()
 					Vec3f camera_dir(0, 0, 1);
 					Vec3f pos_on_plan = screen_to_plan(event.mouseButton.x, event.mouseButton.y);
 					Vec3f dir = pos_on_plan - camera_pos;
-					std::vector<std::unique_ptr<Rended_object>> sph_vec = Get_data_rended_objects();
+					std::vector<std::shared_ptr<Rended_object>> sph_vec = Get_data_rended_objects();
 					std::vector<Light_point> light_vec = GetDataLight_scene1();
 					sf::Color received_color = TraceRay(pos_on_plan, dir, sph_vec, light_vec, 3, true);
 				}

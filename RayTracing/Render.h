@@ -30,44 +30,29 @@ bool Intersection(Vec3f pos, Vec3f dir, Sphere_struct sph, float& t) {
 	return t;
 }
 
-std::unique_ptr<Rended_object>& ClosestIntersection(Vec3f pos,
-									Vec3f dir, 
-									std::vector<std::unique_ptr<Rended_object>>& sph_vec,
-									float t_min, 
-									float t_max, 
-									float& t,
-									Vec3f& normal) {
-	/*float parametr_t;
-	Sphere_struct* IntersectSphere = NULL;
-	for (auto& sph : sph_vec) {		
-		if (Intersection(pos, dir, sph, parametr_t)) {
-			if (parametr_t < t_max && parametr_t > t_min) {
-				t_max = parametr_t;
-				IntersectSphere = &sph;
-			}
-		}
-	}
-	t = t_max;
-	return IntersectSphere;*/
+bool ClosestIntersection(Vec3f pos,
+						Vec3f dir, 
+						std::vector<std::shared_ptr<Rended_object>>& sph_vec,
+						float t_min, 
+						float t_max, 
+						float& t,
+						Vec3f& normal,
+						std::shared_ptr<Rended_object>& sptr) {
 	float parametr_t;
-	//std::unique_ptr<Rended_object> IntersectSphere = NULL;
-	int i = 0;
-	int returned_i = -1;
+	bool flag = false;
 	for (auto& sph : sph_vec) {
 		if (sph->Intersection(pos, dir, parametr_t, normal)) {
 			if (parametr_t < t_max && parametr_t > t_min) {
 				t_max = parametr_t;
-				returned_i = i;
-				//IntersectSphere = std::move(sph);
+				sptr = sph;
+				flag = true;
 			}
 		}
-		i++;
 	}
+	Vec3f intersected_point = pos + t_max * dir;
+	if (flag) normal = sptr->Get_normal(intersected_point);
 	t = t_max;
-	//return IntersectSphere;
-	//if (returned_i == -1) return std::make_unique<Sphere>(nullptr);
-	if (returned_i == -1) return nullptr;
-	return sph_vec[returned_i];
+	return flag;
 }
 
 Vec3f screen_to_plan(int i, int j) {
@@ -86,10 +71,10 @@ Vec3f Reflect_ray(Vec3f fallen_ray, Vec3f normal) {
 	return (-1) * (fallen_ray - 2 * (fallen_ray % normal) / (normal % normal) * normal);
 }
 
-float Calculate_bright(const std::unique_ptr<Rended_object>& sp,
+float Calculate_bright(const std::shared_ptr<Rended_object>& sp,
 						Vec3f normal,
 						std::vector<Light_point>& light_vec, 
-						std::vector<std::unique_ptr<Rended_object>>& sph_vec,
+						std::vector<std::shared_ptr<Rended_object>>& sph_vec,
 						Vec3f intersected_point, 
 						Vec3f dir) {
 	float bright = 0;
@@ -100,8 +85,9 @@ float Calculate_bright(const std::unique_ptr<Rended_object>& sp,
 		
 		float parametr_t;
 		Vec3f normal1;
+		std::shared_ptr<Rended_object> sptr;
 		//тут можно делать проверку до первого попавшегося объекта
-		if (ClosestIntersection(intersected_point, fallen_ray, sph_vec, 0.00001, 1, parametr_t, normal1)) {
+		if (ClosestIntersection(intersected_point, fallen_ray, sph_vec, 0.00001, 1, parametr_t, normal1, sptr)) {
 			continue;
 		}
 
@@ -119,35 +105,36 @@ float Calculate_bright(const std::unique_ptr<Rended_object>& sp,
 	return bright;
 }
 
-sf::Color TraceRay(Vec3f pos, Vec3f dir, std::vector<std::unique_ptr<Rended_object>>& sph_vec,
+sf::Color TraceRay(Vec3f pos, Vec3f dir, std::vector<std::shared_ptr<Rended_object>>& sph_vec,
 					std::vector<Light_point>& light_vec, int level, bool debug) {
 	float parametr_t = 0;
 	Vec3f normal;
-	std::unique_ptr<Rended_object> closest_obj = std::move(ClosestIntersection(pos, dir, sph_vec, 0, 1000, parametr_t, normal));
-
-	if (closest_obj != NULL) {
-		Vec3f intersected_point = pos + parametr_t * dir;
-		float bright = Calculate_bright(closest_obj, normal, light_vec, sph_vec, intersected_point, dir);
-		Vec3f color(closest_obj->color);		
-		if (level > 0) {
-			//color = bright * color;
-			//Vec3f reflected_ray = Reflect_ray((-1) * dir, intersected_point - closest_obj->center);
-			Vec3f reflected_ray = Reflect_ray((-1) * dir, normal);
-			float r = closest_obj->reflection;
-			color = (1 - r) * bright * color + r * TraceRay(intersected_point, reflected_ray, sph_vec, light_vec, --level, debug);
-		}
-		else {
-			color = bright * color;
-			if (debug) std::cout << "--------------------------" << std::endl;
-		}
-		if (debug) std::cout << "color: " << color << std::endl;
-		return sfColorFromVec(color);
-	}
-	else {
+	std::shared_ptr<Rended_object> sptr;
+	ClosestIntersection(pos, dir, sph_vec, 0, 1000, parametr_t, normal, sptr);
+		
+	if (sptr == NULL) {
 		if (debug) std::cout << "--------------------------" << std::endl;
 		if (debug) std::cout << "back_ground" << std::endl;
 		return back_ground;
 	}
+
+	if (debug) std::cout << "obj<" << sptr->name << "> ";
+	
+	Vec3f intersected_point = pos + parametr_t * dir;
+	float bright = Calculate_bright(sptr, normal, light_vec, sph_vec, intersected_point, dir);
+	Vec3f color(sptr->color);		
+	if (level > 0) {
+		//color = bright * color;
+		Vec3f reflected_ray = Reflect_ray((-1) * dir, normal);
+		float r = sptr->reflection;
+		color = (1 - r) * bright * color + r * TraceRay(intersected_point, reflected_ray, sph_vec, light_vec, --level, debug);
+	}
+	else {
+		color = bright * color;
+		if (debug) std::cout << "--------------------------" << std::endl;
+	}
+	if (debug) std::cout << "color: " << color << std::endl;
+	return sfColorFromVec(color);
 }
 
 sf::Image GetRenderImage() {
@@ -155,7 +142,7 @@ sf::Image GetRenderImage() {
 	img.create(screen_width, screen_heigt);
 
 	//std::vector<Sphere_struct> sph_vec = GetData_scene1();
-	std::vector<std::unique_ptr<Rended_object>> sph_vec = Get_data_rended_objects();
+	std::vector<std::shared_ptr<Rended_object>> sph_vec = Get_data_rended_objects();
 	std::vector<Light_point> light_vec = GetDataLight_scene1();
 
 	float PI = 3.1415926535;

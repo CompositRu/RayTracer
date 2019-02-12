@@ -88,7 +88,7 @@ struct Light_point {
 
 std::vector<Light_point> GetDataLight_scene1() {
 	std::vector<Light_point> v;
-	//v.push_back(Light_point(Vec3f(-300, 0, 0), 0.5));
+	v.push_back(Light_point(Vec3f(-300, 0, 0), 0.5));
 	v.push_back(Light_point(Vec3f(0, 0, -100), 0.3));
 	v.push_back(Light_point(Vec3f(150, 100, -100), 0.5));
 	return v;
@@ -103,53 +103,44 @@ std::vector<Light_point> GetDataLight_scene2() {
 }
 
 //Объекты классов
-std::vector<std::unique_ptr<Rended_object>> Get_data_rended_objects() {
-	std::vector<std::unique_ptr<Rended_object>>  v;
+std::vector<std::shared_ptr<Rended_object>> Get_data_rended_objects() {
+	std::vector<std::shared_ptr<Rended_object>>  v;
 	
-	auto sp = std::make_unique<Sphere>(Sphere(Vec3f(200, 100, 200), //red
+	v.push_back(std::make_shared<Sphere>( Sphere(2, Vec3f(200, 100, 200), //red
 		100.0,
 		sf::Color(155, 20, 20),
 		Specular(10),
 		0.2,
-		0));
-	v.push_back(std::move(sp));
-
-
-	//v.push_back(std::make_unique<Rended_object>( Sphere(Vec3f(200, 100, 200), //red
-	//	100.0,
-	//	sf::Color(155, 20, 20),
-	//	Specular(10),
-	//	0.2,
-	//	0)));
-	//v.push_back(std::make_unique<Rended_object>(Sphere(Vec3f(-100, -100, 200), //blue
-	//	50,
-	//	sf::Color(20, 20, 155),
-	//	Specular(50),
-	//	0.5,
-	//	0)));
-	//v.push_back(std::make_unique<Rended_object>(Sphere(Vec3f(0, 0, 450), //green
-	//	150,
-	//	sf::Color(20, 155, 20),
-	//	Specular(50),
-	//	0.3,
-	//	0)));
-	//v.push_back(std::make_unique<Rended_object>(Sphere(Vec3f(-350, 50, 650), //orange
-	//	200,
-	//	sf::Color(214, 161, 13),
-	//	Specular(50),
-	//	0.8,
-	//	0)));
-	//v.push_back(std::make_unique<Rended_object>(Sphere(Vec3f(0, 5000, 0), //big
-	//	4900,
-	//	sf::Color(13, 161, 214),
-	//	Specular(50),
-	//	0.5,
-	//	0)));
-	//v.push_back(std::make_unique<Rended_object>(Sphere(Vec3f(0, -500, 200), //top
-	//	100,
-	//	sf::Color(155, 20, 20),
-	//	Specular(10),
-	//	0.2,
-	//	0)));
+		0)));
+	v.push_back(std::make_shared<Sphere>(Sphere(3, Vec3f(-100, -100, 200), //blue
+		50,
+		sf::Color(20, 20, 155),
+		Specular(50),
+		0.5,
+		0)));
+	v.push_back(std::make_shared<Sphere>(Sphere(4, Vec3f(0, 0, 450), //green
+		150,
+		sf::Color(20, 155, 20),
+		Specular(50),
+		0.3,
+		0)));
+	v.push_back(std::make_shared<Sphere>(Sphere(5, Vec3f(-350, 50, 650), //orange
+		200,
+		sf::Color(214, 161, 13),
+		Specular(50),
+		0.8,
+		0)));
+	v.push_back(std::make_shared<Sphere>(Sphere(6, Vec3f(0, 5000, 0), //big
+		4900,
+		sf::Color(13, 161, 214),
+		Specular(50),
+		0.5,
+		0)));
+	v.push_back(std::make_shared<Sphere>(Sphere(7, Vec3f(0, -500, 200), //top
+		100,
+		sf::Color(155, 20, 20),
+		Specular(10),
+		0.2,
+		0)));
 	return v;
 }
